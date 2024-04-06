@@ -58,7 +58,7 @@ func (r *Repo) GetAllTables(ctx context.Context) ([]*postgres.Table, error) {
 func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*postgres.Column, error) {
 
 	rows, err := r.DB.QueryxContext(ctx,
-		fmt.Sprintf("SELECT * FROM information_schema.columns WHERE table_name   = '%v' order by ordinal_position", tableName))
+		fmt.Sprintf("SELECT * FROM information_schema.columns WHERE table_name = '%v' order by ordinal_position", tableName))
 
 	if err != nil {
 		return nil, err

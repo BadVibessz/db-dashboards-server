@@ -3,19 +3,124 @@ package main
 import (
 	"context"
 	"database/sql"
-	"db-dashboards/internal/repository/postgres"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-playground/validator/v10"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"golang.org/x/crypto/bcrypt"
 
+	"db-dashboards/internal/config"
+	"db-dashboards/pkg/router"
+
+	userhandler "db-dashboards/internal/handler/user"
+	userrepo "db-dashboards/internal/repository/user"
+	userservice "db-dashboards/internal/service/user"
+
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	_ "db-dashboards/docs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+type Hasher struct{}
+
+func (h *Hasher) GenerateFromPassword(password []byte, cost int) ([]byte, error) {
+	return bcrypt.GenerateFromPassword(password, cost)
+}
+
+func (h *Hasher) CompareHashAndPassword(hashedPassword []byte, password []byte) error {
+	return bcrypt.CompareHashAndPassword(hashedPassword, password)
+}
+
+const (
+	configPath = "config/"
+)
+
+func initConfig() (*config.Config, error) {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+
+	viper.AddConfigPath(configPath)
+
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, err
+	}
+
+	var conf config.Config
+	if err := viper.Unmarshal(&conf); err != nil {
+		return nil, err
+	}
+
+	// env variables
+	if err := godotenv.Load(configPath + "/.env"); err != nil {
+		return nil, err
+	}
+
+	viper.SetEnvPrefix("db_dashboards")
+	viper.AutomaticEnv()
+
+	// validate todo: VALIDATOR!
+
+	conf.Jwt.Secret = viper.GetString("JWT_SECRET")
+	if conf.Jwt.Secret == "" {
+		return nil, errors.New("CHAT_JWT_SECRET env variable not set")
+	}
+
+	return &conf, nil
+}
+
 func main() {
 	logger := logrus.New()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
-	connStr := "postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"
+	valid := validator.New(validator.WithRequiredStructEnabled())
+
+	//connStr := "postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"
+	//
+	//conn, err := sql.Open("pgx", connStr)
+	//if err != nil {
+	//	logger.Fatalf("cannot open database connection with connection string: %v, err: %v", connStr, err)
+	//}
+	//
+	//db := sqlx.NewDb(conn, "postgres")
+	//
+	//repo := postgres.New(db)
+	//
+	//tables, err := repo.GetAllTables(ctx)
+	//if err != nil {
+	//	logger.Fatalf(err.Error())
+	//}
+	//
+	//for _, table := range tables {
+	//	logger.Infof("table: %v", table.Name)
+	//
+	//	columns, err := repo.GetColumnsFromTable(ctx, table.Name)
+	//	if err != nil {
+	//		logger.Fatalf(err.Error())
+	//	}
+	//
+	//	for _, col := range columns {
+	//		logger.Infof("column %v of type %v", col.Name, col.Type)
+	//	}
+	//
+	//}
+
+	conf, err := initConfig()
+	if err != nil {
+		logger.Fatalf("error occurred reading config file: %v", err)
+	}
+
+	connStr := conf.Postgres.ConnectionURL()
 
 	conn, err := sql.Open("pgx", connStr)
 	if err != nil {
@@ -24,25 +129,58 @@ func main() {
 
 	db := sqlx.NewDb(conn, "postgres")
 
-	repo := postgres.New(db)
+	userRepo := userrepo.New(db)
+	userService := userservice.New(userRepo, &Hasher{})
+	userHandler := userhandler.New(userService, logger, valid)
 
-	tables, err := repo.GetAllTables(ctx)
-	if err != nil {
-		logger.Fatalf(err.Error())
+	routers := make(map[string]chi.Router)
+
+	routers["/users"] = userHandler.Routes()
+
+	middlewars := []router.Middleware{
+		middleware.Recoverer,
+		middleware.Logger,
 	}
 
-	for _, table := range tables {
-		logger.Infof("table: %v", table.Name)
+	r := router.MakeRoutes("/db-dashboards/api/v1", routers, middlewars)
 
-		columns, err := repo.GetColumnsFromTable(ctx, table.Name)
-		if err != nil {
-			logger.Fatalf(err.Error())
-		}
-
-		for _, col := range columns {
-			logger.Infof("column %v of type %v", col.Name, col.Type)
-		}
-
+	server := http.Server{
+		Addr:    fmt.Sprintf(":%v", conf.Server.Port),
+		Handler: r,
 	}
 
+	// add swagger middleware
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL(fmt.Sprintf("http://localhost:%v/swagger/doc.json", conf.Server.Port)), // The url pointing to API definition
+	))
+
+	logger.Infof("server started at port %v", server.Addr)
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.WithError(err).Fatalf("server can't listen requests")
+		}
+	}()
+
+	logger.Infof("documentation available on: http://localhost:%v/swagger/index.html", conf.Server.Port)
+
+	interrupt := make(chan os.Signal, 1)
+
+	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
+	signal.Notify(interrupt, syscall.SIGINT)
+
+	go func() {
+		<-interrupt
+
+		logger.Info("interrupt signal caught")
+		logger.Info("server shutting down")
+
+		if err := server.Shutdown(ctx); err != nil {
+			logger.WithError(err).Fatalf("can't close server listening on '%s'", server.Addr)
+		}
+
+		cancel()
+	}()
+
+	<-ctx.Done()
 }
