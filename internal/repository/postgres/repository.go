@@ -56,7 +56,6 @@ func (r *Repo) GetAllTables(ctx context.Context) ([]*postgres.Table, error) {
 }
 
 func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*postgres.Column, error) {
-
 	rows, err := r.DB.QueryxContext(ctx,
 		fmt.Sprintf("SELECT * FROM information_schema.columns WHERE table_name = '%v' order by ordinal_position", tableName))
 
@@ -77,6 +76,12 @@ func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*po
 	var columns []*postgres.Column
 
 	for rows.Next() {
+		row := make(postgres.Row)
+
+		if err = rows.MapScan(row); err != nil {
+			return nil, err
+		}
+
 		cols := make([]string, len(columnNames))
 		columnPointers := make([]any, len(columnNames))
 
@@ -106,4 +111,26 @@ func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*po
 	}
 
 	return columns, nil
+}
+
+func (r *Repo) GetAllRowsFromTable(ctx context.Context, tableName string) ([]*postgres.Row, error) {
+
+	dbRows, err := r.DB.QueryxContext(ctx, fmt.Sprintf("SELECT * FROM %v", tableName))
+	if err != nil {
+		return nil, err
+	}
+
+	var rows []*postgres.Row
+
+	for dbRows.Next() {
+		row := make(postgres.Row)
+
+		if err = dbRows.MapScan(row); err != nil {
+			return nil, err
+		}
+
+		rows = append(rows, &row)
+	}
+
+	return rows, nil
 }

@@ -1,4 +1,4 @@
-package mysqlEntity
+package mysql
 
 type Table struct {
 	Name string `db:"TABLE_NAME"`

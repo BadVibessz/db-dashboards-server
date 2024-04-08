@@ -25,6 +25,11 @@ definitions:
     - email
     - password
     type: object
+  response.GetTableResponse:
+    properties:
+      name:
+        type: string
+    type: object
   response.GetUserResponse:
     properties:
       created_at:
@@ -104,4 +109,31 @@ paths:
       summary: Register new user
       tags:
       - Auth
+  /db-dashboards/api/v1/postgres/tables:
+    get:
+      description: Get all tables from db
+      parameters:
+      - description: connection string
+        in: header
+        name: connection-string
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/response.GetTableResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Get all tables from db
+      tags:
+      - Postgres
 swagger: "2.0"

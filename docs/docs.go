@@ -106,6 +106,49 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/db-dashboards/api/v1/postgres/tables": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "Get all tables from db",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postgres"
+                ],
+                "summary": "Get all tables from db",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "connection string",
+                        "name": "connection-string",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/response.GetTableResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -143,6 +186,14 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128,
                     "minLength": 8
+                }
+            }
+        },
+        "response.GetTableResponse": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
                 }
             }
         },

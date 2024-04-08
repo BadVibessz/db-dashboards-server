@@ -3,7 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"db-dashboards/internal/domain/entity/mysqlEntity"
+	"db-dashboards/internal/domain/entity/mysql"
 	"fmt"
 	"strings"
 )
@@ -18,16 +18,16 @@ func New(db *sql.DB) *Repo {
 	}
 }
 
-func (r *Repo) GetAllTables(ctx context.Context, dbName string) ([]*mysqlEntity.Table, error) {
+func (r *Repo) GetAllTables(ctx context.Context, dbName string) ([]*mysql.Table, error) {
 	query := fmt.Sprintf("SELECT * FROM information_schema.tables WHERE table_schema = '%s'", dbName)
-	rows, err := r.DB.QueryContext(ctx, query) // todo: return only public tables?
+	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
 	columnNames, _ := rows.Columns()
 
-	var tables []*mysqlEntity.Table
+	var tables []*mysql.Table
 
 	for rows.Next() {
 		columns := make([]string, len(columnNames))
@@ -39,7 +39,7 @@ func (r *Repo) GetAllTables(ctx context.Context, dbName string) ([]*mysqlEntity.
 
 		rows.Scan(columnPointers...)
 
-		var table mysqlEntity.Table
+		var table mysql.Table
 
 		for i, columnName := range columnNames {
 			if columnName == "TABLE_NAME" {
@@ -54,7 +54,7 @@ func (r *Repo) GetAllTables(ctx context.Context, dbName string) ([]*mysqlEntity.
 	return tables, nil
 }
 
-func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*mysqlEntity.Column, error) {
+func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*mysql.Column, error) {
 
 	rows, err := r.DB.QueryContext(ctx,
 		fmt.Sprintf("SELECT * FROM information_schema.columns WHERE table_name   = '%v' order by ordinal_position", tableName))
@@ -73,7 +73,7 @@ func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*my
 		return nil, err
 	}
 
-	var columns []*mysqlEntity.Column
+	var columns []*mysql.Column
 
 	for rows.Next() {
 		cols := make([]string, len(columnNames))
@@ -85,7 +85,7 @@ func (r *Repo) GetColumnsFromTable(ctx context.Context, tableName string) ([]*my
 
 		rows.Scan(columnPointers...)
 
-		var column mysqlEntity.Column
+		var column mysql.Column
 
 		for i, columnName := range columnNames {
 			if columnName == "COLUMN_NAME" {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"db-dashboards/internal/repository/postgres"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,9 +23,17 @@ import (
 	"db-dashboards/internal/config"
 	"db-dashboards/pkg/router"
 
+	authhandler "db-dashboards/internal/handler/auth"
+	postgreshandler "db-dashboards/internal/handler/postgres"
 	userhandler "db-dashboards/internal/handler/user"
+
 	userrepo "db-dashboards/internal/repository/user"
+
+	authservice "db-dashboards/internal/service/auth"
+	postgreservice "db-dashboards/internal/service/postgres"
 	userservice "db-dashboards/internal/service/user"
+
+	middlewares "db-dashboards/internal/handler/middleware"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
@@ -85,35 +94,43 @@ func main() {
 
 	valid := validator.New(validator.WithRequiredStructEnabled())
 
-	//connStr := "postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"
-	//
-	//conn, err := sql.Open("pgx", connStr)
-	//if err != nil {
-	//	logger.Fatalf("cannot open database connection with connection string: %v, err: %v", connStr, err)
-	//}
-	//
-	//db := sqlx.NewDb(conn, "postgres")
-	//
-	//repo := postgres.New(db)
-	//
-	//tables, err := repo.GetAllTables(ctx)
-	//if err != nil {
-	//	logger.Fatalf(err.Error())
-	//}
-	//
-	//for _, table := range tables {
-	//	logger.Infof("table: %v", table.Name)
-	//
-	//	columns, err := repo.GetColumnsFromTable(ctx, table.Name)
-	//	if err != nil {
-	//		logger.Fatalf(err.Error())
-	//	}
-	//
-	//	for _, col := range columns {
-	//		logger.Infof("column %v of type %v", col.Name, col.Type)
-	//	}
-	//
-	//}
+	tempConnStr := "postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"
+
+	conn, err := sql.Open("pgx", tempConnStr)
+	if err != nil {
+		logger.Fatalf("cannot open database connection with connection string: %v, err: %v", tempConnStr, err)
+	}
+
+	db := sqlx.NewDb(conn, "postgres")
+
+	repo := postgres.New(db)
+
+	tables, err := repo.GetAllTables(ctx)
+	if err != nil {
+		logger.Fatalf(err.Error())
+	}
+
+	for _, table := range tables {
+		logger.Infof("table: %v", table.Name)
+
+		columns, err := repo.GetColumnsFromTable(ctx, table.Name)
+		if err != nil {
+			logger.Fatalf(err.Error())
+		}
+
+		for _, col := range columns {
+			logger.Infof("column %v of type %v", col.Name, col.Type)
+		}
+
+		rows, err := repo.GetAllRowsFromTable(ctx, table.Name)
+		if err != nil {
+			logger.Fatalf(err.Error())
+		}
+
+		for _, row := range rows {
+			logger.Infof("row: %+v", row)
+		}
+	}
 
 	conf, err := initConfig()
 	if err != nil {
@@ -122,20 +139,30 @@ func main() {
 
 	connStr := conf.Postgres.ConnectionURL()
 
-	conn, err := sql.Open("pgx", connStr)
+	conn, err = sql.Open("pgx", tempConnStr)
 	if err != nil {
 		logger.Fatalf("cannot open database connection with connection string: %v, err: %v", connStr, err)
 	}
 
-	db := sqlx.NewDb(conn, "postgres")
+	db = sqlx.NewDb(conn, "postgres")
 
 	userRepo := userrepo.New(db)
+
 	userService := userservice.New(userRepo, &Hasher{})
-	userHandler := userhandler.New(userService, logger, valid)
+	authService := authservice.New(userRepo, &Hasher{})
+	postgresService := postgreservice.New()
+
+	authMiddleware := middlewares.JWTAuthMiddleware(conf.Jwt.Secret, logger)
+
+	authHandler := authhandler.New(userService, authService, conf.Jwt, logger, valid)
+	userHandler := userhandler.New(userService, logger, valid, authMiddleware)
+	postgresHandler := postgreshandler.New(postgresService, logger, valid)
 
 	routers := make(map[string]chi.Router)
 
+	routers["/auth"] = authHandler.Routes()
 	routers["/users"] = userHandler.Routes()
+	routers["/postgres"] = postgresHandler.Routes()
 
 	middlewars := []router.Middleware{
 		middleware.Recoverer,
@@ -157,8 +184,8 @@ func main() {
 	logger.Infof("server started at port %v", server.Addr)
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.WithError(err).Fatalf("server can't listen requests")
+		if serverErr := server.ListenAndServe(); serverErr != nil && !errors.Is(serverErr, http.ErrServerClosed) {
+			logger.WithError(serverErr).Fatalf("server can't listen requests")
 		}
 	}()
 
@@ -175,8 +202,8 @@ func main() {
 		logger.Info("interrupt signal caught")
 		logger.Info("server shutting down")
 
-		if err := server.Shutdown(ctx); err != nil {
-			logger.WithError(err).Fatalf("can't close server listening on '%s'", server.Addr)
+		if shutdownErr := server.Shutdown(ctx); shutdownErr != nil {
+			logger.WithError(shutdownErr).Fatalf("can't close server listening on '%s'", server.Addr)
 		}
 
 		cancel()
