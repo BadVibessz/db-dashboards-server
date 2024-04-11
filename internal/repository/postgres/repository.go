@@ -20,8 +20,8 @@ func New(db *sqlx.DB) *Repo {
 	}
 }
 
-func (r *Repo) GetAllTables(ctx context.Context) ([]*postgres.Table, error) {
-	rows, err := r.DB.QueryxContext(ctx, "SELECT * FROM information_schema.tables WHERE table_schema = 'public'") // todo: return only public tables?
+func (r *Repo) GetAllTables(ctx context.Context, schema string) ([]*postgres.Table, error) {
+	rows, err := r.DB.QueryxContext(ctx, "SELECT * FROM information_schema.tables WHERE table_schema = $1", schema)
 	if err != nil {
 		return nil, err
 	}

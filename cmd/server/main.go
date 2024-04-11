@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"db-dashboards/internal/repository/postgres"
 	"errors"
 	"fmt"
 	"net/http"
@@ -94,43 +93,43 @@ func main() {
 
 	valid := validator.New(validator.WithRequiredStructEnabled())
 
-	tempConnStr := "postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"
-
-	conn, err := sql.Open("pgx", tempConnStr)
-	if err != nil {
-		logger.Fatalf("cannot open database connection with connection string: %v, err: %v", tempConnStr, err)
-	}
-
-	db := sqlx.NewDb(conn, "postgres")
-
-	repo := postgres.New(db)
-
-	tables, err := repo.GetAllTables(ctx)
-	if err != nil {
-		logger.Fatalf(err.Error())
-	}
-
-	for _, table := range tables {
-		logger.Infof("table: %v", table.Name)
-
-		columns, err := repo.GetColumnsFromTable(ctx, table.Name)
-		if err != nil {
-			logger.Fatalf(err.Error())
-		}
-
-		for _, col := range columns {
-			logger.Infof("column %v of type %v", col.Name, col.Type)
-		}
-
-		rows, err := repo.GetAllRowsFromTable(ctx, table.Name)
-		if err != nil {
-			logger.Fatalf(err.Error())
-		}
-
-		for _, row := range rows {
-			logger.Infof("row: %+v", row)
-		}
-	}
+	//tempConnStr := "postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"
+	//
+	//conn, err := sql.Open("pgx", tempConnStr)
+	//if err != nil {
+	//	logger.Fatalf("cannot open database connection with connection string: %v, err: %v", tempConnStr, err)
+	//}
+	//
+	//db := sqlx.NewDb(conn, "postgres")
+	//
+	//repo := postgres.New(db)
+	//
+	//tables, err := repo.GetAllTables(ctx)
+	//if err != nil {
+	//	logger.Fatalf(err.Error())
+	//}
+	//
+	//for _, table := range tables {
+	//	logger.Infof("table: %v", table.Name)
+	//
+	//	columns, err := repo.GetColumnsFromTable(ctx, table.Name)
+	//	if err != nil {
+	//		logger.Fatalf(err.Error())
+	//	}
+	//
+	//	for _, col := range columns {
+	//		logger.Infof("column %v of type %v", col.Name, col.Type)
+	//	}
+	//
+	//	rows, err := repo.GetAllRowsFromTable(ctx, table.Name)
+	//	if err != nil {
+	//		logger.Fatalf(err.Error())
+	//	}
+	//
+	//	for _, row := range rows {
+	//		logger.Infof("row: %+v", row)
+	//	}
+	//}
 
 	conf, err := initConfig()
 	if err != nil {
@@ -139,12 +138,12 @@ func main() {
 
 	connStr := conf.Postgres.ConnectionURL()
 
-	conn, err = sql.Open("pgx", tempConnStr)
+	conn, err := sql.Open("pgx", conf.Postgres.ConnectionURL())
 	if err != nil {
 		logger.Fatalf("cannot open database connection with connection string: %v, err: %v", connStr, err)
 	}
 
-	db = sqlx.NewDb(conn, "postgres")
+	db := sqlx.NewDb(conn, "postgres")
 
 	userRepo := userrepo.New(db)
 
