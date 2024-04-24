@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -144,6 +145,27 @@ func main() {
 	}
 
 	db := sqlx.NewDb(conn, "postgres")
+
+	// try to connect to db
+	for i := 0; i < conf.Postgres.Retries; i++ {
+		conn, err = sql.Open("pgx", conf.Postgres.ConnectionURL())
+		if err != nil {
+			logger.Fatalf("cannot open database connection with connection string: %v, err: %v", conf.Postgres.ConnectionURL(), err)
+		} else {
+			db = sqlx.NewDb(conn, "postgres")
+
+			if err = db.Ping(); err != nil {
+				logger.Errorf("can't ping database: %v\nconnection string: %v", err, conf.Postgres.ConnectionURL())
+				logger.Infof("retrying in %v sec...", conf.Postgres.Interval)
+				logger.Infof("retry %v of %v", i+1, conf.Postgres.Retries)
+
+				time.Sleep(time.Duration(conf.Postgres.Interval) * time.Second)
+			} else {
+				err = nil
+				break
+			}
+		}
+	}
 
 	userRepo := userrepo.New(db)
 

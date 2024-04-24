@@ -10,3 +10,10 @@ func MapTableToTableResponse(table *postgres.Table) response.GetTableResponse {
 		Name: table.Name,
 	}
 }
+
+func MapColumnToColumnResponse(column *postgres.Column) response.GetColumnsResponse {
+	return response.GetColumnsResponse{
+		Name: column.Name,
+		Type: column.Type,
+	}
+}

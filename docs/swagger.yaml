@@ -25,6 +25,13 @@ definitions:
     - email
     - password
     type: object
+  response.GetColumnsResponse:
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+    type: object
   response.GetTableResponse:
     properties:
       name:
@@ -109,6 +116,70 @@ paths:
       summary: Register new user
       tags:
       - Auth
+  /db-dashboards/api/v1/postgres/columns:
+    get:
+      description: Get all columns from table
+      parameters:
+      - description: connection string
+        in: header
+        name: connection-string
+        required: true
+        type: string
+      - description: name of the table
+        in: header
+        name: table-name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/response.GetColumnsResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Get all columns from table
+      tags:
+      - Postgres
+  /db-dashboards/api/v1/postgres/data:
+    get:
+      description: Get all data from table
+      parameters:
+      - description: connection string
+        in: header
+        name: connection-string
+        required: true
+        type: string
+      - description: name of the table
+        in: header
+        name: table-name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/response.GetColumnsResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - JWT: []
+      summary: Get all data from table
+      tags:
+      - Postgres
   /db-dashboards/api/v1/postgres/tables:
     get:
       description: Get all tables from db

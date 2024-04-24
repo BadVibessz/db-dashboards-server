@@ -8,6 +8,8 @@ type Postgres struct {
 	User     string
 	Password string // todo: to .env?
 	DBName   string
+	Retries  int
+	Interval int
 }
 
 func (p *Postgres) ConnectionDSN() string {

@@ -107,6 +107,106 @@ const docTemplate = `{
                 }
             }
         },
+        "/db-dashboards/api/v1/postgres/columns": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "Get all columns from table",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postgres"
+                ],
+                "summary": "Get all columns from table",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "connection string",
+                        "name": "connection-string",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "name of the table",
+                        "name": "table-name",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/response.GetColumnsResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/db-dashboards/api/v1/postgres/data": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "Get all data from table",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postgres"
+                ],
+                "summary": "Get all data from table",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "connection string",
+                        "name": "connection-string",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "name of the table",
+                        "name": "table-name",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/response.GetColumnsResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/db-dashboards/api/v1/postgres/tables": {
             "get": {
                 "security": [
@@ -186,6 +286,17 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128,
                     "minLength": 8
+                }
+            }
+        },
+        "response.GetColumnsResponse": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },

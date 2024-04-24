@@ -8,3 +8,5 @@ postgres:
   user: postgres
   password: postgres
   dbname: db_dashboards
+  retries: 5
+  interval: 5

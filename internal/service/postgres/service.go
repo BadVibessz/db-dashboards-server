@@ -16,7 +16,7 @@ func New() *Service {
 }
 
 func (s *Service) GetAllTables(ctx context.Context, repo *postgresrepo.Repo) ([]*postgres.Table, error) {
-	return repo.GetAllTables(ctx)
+	return repo.GetAllTables(ctx, "public")
 }
 
 func (s *Service) GetColumnsFromTable(ctx context.Context, repo *postgresrepo.Repo, tableName string) ([]*postgres.Column, error) {
